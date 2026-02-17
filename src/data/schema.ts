@@ -12,14 +12,14 @@ CREATE TABLE IF NOT EXISTS places_base (
     category TEXT NOT NULL,
     lat REAL NOT NULL,
     lng REAL NOT NULL,
-    neighborhood TEXT,
+    neighborhood TEXT NOT NULL,
     price_range INTEGER,
     rating REAL,
-    images TEXT,           -- JSON array of PlaceImage
+    images TEXT NOT NULL,  -- JSON array of PlaceImage
     opening_hours TEXT,    -- JSON OpeningHours
     contacts TEXT,         -- JSON
     featured INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'open',
+    status TEXT NOT NULL DEFAULT 'open',
     last_verified_at TEXT
 );
 
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content_type TEXT NOT NULL,
     content_id TEXT NOT NULL,
-    note_text TEXT,
+    note_text TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -119,8 +119,8 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE TABLE IF NOT EXISTS checklist_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
-    completed INTEGER DEFAULT 0,
-    sort_order INTEGER,
+    completed INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 
@@ -131,16 +131,16 @@ CREATE TABLE IF NOT EXISTS issue_reports (
     report_type TEXT NOT NULL,  -- 'incorrect', 'closed', 'outdated', 'other'
     details TEXT,
     created_at TEXT NOT NULL,
-    synced INTEGER DEFAULT 0
+    synced INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS download_status (
     pack_id TEXT PRIMARY KEY,
     pack_type TEXT NOT NULL,    -- 'map', 'content', 'routing'
     status TEXT NOT NULL,       -- 'pending', 'downloading', 'ready', 'failed'
-    progress REAL DEFAULT 0,
+    progress REAL NOT NULL DEFAULT 0,
     size_bytes INTEGER,
-    downloaded_bytes INTEGER DEFAULT 0,
+    downloaded_bytes INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
     updated_at TEXT NOT NULL
 );
