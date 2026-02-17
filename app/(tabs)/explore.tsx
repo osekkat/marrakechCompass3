@@ -1,0 +1,145 @@
+import type React from 'react';
+import { StyleSheet, Text, View, ScrollView, TextInput, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+/**
+ * Explore screen - Search, browse, filter places
+ *
+ * Features:
+ * - Offline full-text search (FTS5)
+ * - Category grid
+ * - Neighborhood quick filters
+ * - Advanced filters (price, rating, open-now)
+ * - Place cards with favorites
+ */
+export default function ExploreScreen(): React.ReactElement {
+  const categories = [
+    { id: 'restaurants', title: 'Restaurants & Cafes', icon: '🍽️' },
+    { id: 'museums', title: 'Museums & Galleries', icon: '🏛️' },
+    { id: 'riads', title: 'Riads & Hotels', icon: '🏨' },
+    { id: 'gardens', title: 'Gardens & Courtyards', icon: '🌿' },
+    { id: 'shopping', title: 'Shopping & Souks', icon: '🛍️' },
+    { id: 'hammams', title: 'Hammams & Spas', icon: '🛁' },
+    { id: 'daytrips', title: 'Day Trips', icon: '🏔️' },
+  ];
+
+  const neighborhoods = ['Medina', 'Gueliz', 'Hivernage', 'Mellah', 'Palmeraie'];
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search places, restaurants, activities..."
+            placeholderTextColor="#7A7471"
+          />
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.neighborhoodScroll}
+          contentContainerStyle={styles.neighborhoodContent}
+        >
+          <Pressable style={[styles.chip, styles.chipActive]}>
+            <Text style={[styles.chipText, styles.chipTextActive]}>All</Text>
+          </Pressable>
+          {neighborhoods.map((neighborhood) => (
+            <Pressable key={neighborhood} style={styles.chip}>
+              <Text style={styles.chipText}>{neighborhood}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.sectionTitle}>Categories</Text>
+        <View style={styles.categoryGrid}>
+          {categories.map((category) => (
+            <View key={category.id} style={styles.categoryCard}>
+              <Text style={styles.categoryIcon}>{category.icon}</Text>
+              <Text style={styles.categoryTitle}>{category.title}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F7F4F0',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  searchContainer: {
+    marginBottom: 16,
+  },
+  searchInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#2D2622',
+    borderWidth: 1,
+    borderColor: '#DDD6CC',
+  },
+  neighborhoodScroll: {
+    marginBottom: 20,
+    marginHorizontal: -16,
+  },
+  neighborhoodContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#EFE9E2',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  chipActive: {
+    backgroundColor: '#C65D3B',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D2622',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#2D2622',
+    marginBottom: 16,
+  },
+  categoryGrid: {
+    gap: 12,
+  },
+  categoryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  categoryIcon: {
+    fontSize: 28,
+    marginRight: 16,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D2622',
+  },
+});
