@@ -27,6 +27,14 @@ import { useState } from 'react';
 export default function TipsScreen(): React.ReactElement {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const getSectionHint = (isExpanded: boolean): string => {
+    if (isExpanded) {
+      return 'Double tap to collapse this section.';
+    }
+
+    return 'Double tap to expand this section and read details.';
+  };
+
   const tipSections = [
     { id: 'transport', icon: '🚕', title: 'Getting Around' },
     { id: 'language', icon: '💬', title: 'Language' },
@@ -52,7 +60,12 @@ export default function TipsScreen(): React.ReactElement {
         contentContainerStyle={styles.scrollContent}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View style={styles.emergencyCard}>
+        <View
+          style={styles.emergencyCard}
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel="Emergency mode. Quick access to contacts and help."
+        >
           <Text style={styles.emergencyIcon} accessible={false}>
             🆘
           </Text>
@@ -72,13 +85,10 @@ export default function TipsScreen(): React.ReactElement {
               style={styles.accordionHeader}
               onPress={() => setExpandedId(expandedId === section.id ? null : section.id)}
               accessibilityRole="button"
-              accessibilityLabel={section.title}
-              accessibilityHint={
-                expandedId === section.id
-                  ? 'Collapse this travel tips section'
-                  : 'Expand this travel tips section'
-              }
+              accessibilityLabel={`${section.title} travel tip section`}
+              accessibilityHint={getSectionHint(expandedId === section.id)}
               accessibilityState={{ expanded: expandedId === section.id }}
+              accessibilityValue={{ text: expandedId === section.id ? 'Expanded' : 'Collapsed' }}
             >
               <Text style={styles.accordionIcon} accessible={false}>
                 {section.icon}
@@ -90,7 +100,12 @@ export default function TipsScreen(): React.ReactElement {
             </Pressable>
             {expandedId === section.id && (
               <View style={styles.accordionContent}>
-                <Text style={styles.accordionText}>Content for {section.title} coming soon...</Text>
+                <Text
+                  style={styles.accordionText}
+                  accessibilityLabel={`${section.title} details. Content coming soon.`}
+                >
+                  Content for {section.title} coming soon...
+                </Text>
               </View>
             )}
           </View>

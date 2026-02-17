@@ -46,7 +46,13 @@ export default function PicksScreen(): React.ReactElement {
         </Text>
 
         {categories.map((category) => (
-          <View key={category.id} style={styles.card}>
+          <View
+            key={category.id}
+            style={styles.card}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`Editorial pick category: ${category.title}`}
+          >
             <Text style={styles.cardIcon} accessible={false}>
               {category.icon}
             </Text>

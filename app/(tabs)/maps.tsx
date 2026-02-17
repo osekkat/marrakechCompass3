@@ -40,7 +40,12 @@ export default function MapsScreen(): React.ReactElement {
             Available Map Packs
           </Text>
 
-          <View style={styles.packItem}>
+          <View
+            style={styles.packItem}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel="Medina Core map pack, around 25 megabytes, status not downloaded."
+          >
             <View style={styles.packInfo}>
               <Text style={styles.packName}>Medina Core</Text>
               <Text style={styles.packSize}>~25 MB</Text>
@@ -50,7 +55,12 @@ export default function MapsScreen(): React.ReactElement {
             </View>
           </View>
 
-          <View style={styles.packItem}>
+          <View
+            style={styles.packItem}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel="City Center map pack, around 50 megabytes, status not downloaded."
+          >
             <View style={styles.packInfo}>
               <Text style={styles.packName}>City Center</Text>
               <Text style={styles.packSize}>~50 MB</Text>
@@ -60,7 +70,12 @@ export default function MapsScreen(): React.ReactElement {
             </View>
           </View>
 
-          <View style={styles.packItem}>
+          <View
+            style={styles.packItem}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel="Full City map pack, around 100 megabytes, status not downloaded."
+          >
             <View style={styles.packInfo}>
               <Text style={styles.packName}>Full City</Text>
               <Text style={styles.packSize}>~100 MB</Text>

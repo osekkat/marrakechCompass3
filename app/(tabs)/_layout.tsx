@@ -68,6 +68,7 @@ export default function TabLayout(): React.ReactElement {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => <TabIcon name="home" color={color} size={size} />,
+          tabBarAccessibilityLabel: 'Home tab',
           headerTitle: 'Marrakech Compass',
         }}
       />
@@ -76,6 +77,7 @@ export default function TabLayout(): React.ReactElement {
         options={{
           title: 'Picks',
           tabBarIcon: ({ color, size }) => <TabIcon name="heart" color={color} size={size} />,
+          tabBarAccessibilityLabel: 'Picks tab',
           headerTitle: 'Our Picks',
         }}
       />
@@ -84,6 +86,7 @@ export default function TabLayout(): React.ReactElement {
         options={{
           title: 'Explore',
           tabBarIcon: ({ color, size }) => <TabIcon name="compass" color={color} size={size} />,
+          tabBarAccessibilityLabel: 'Explore tab',
           headerTitle: 'Explore',
         }}
       />
@@ -92,6 +95,7 @@ export default function TabLayout(): React.ReactElement {
         options={{
           title: 'Maps',
           tabBarIcon: ({ color, size }) => <TabIcon name="map" color={color} size={size} />,
+          tabBarAccessibilityLabel: 'Maps tab',
           headerTitle: 'Maps',
         }}
       />
@@ -102,6 +106,7 @@ export default function TabLayout(): React.ReactElement {
           tabBarIcon: ({ color, size }) => (
             <TabIcon name="information-circle" color={color} size={size} />
           ),
+          tabBarAccessibilityLabel: 'Tips tab',
           headerTitle: 'Travel Tips',
         }}
       />

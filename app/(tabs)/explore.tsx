@@ -16,6 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ExploreScreen(): React.ReactElement {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('All');
 
+  const getNeighborhoodFilterHint = (isSelected: boolean, neighborhoodLabel: string): string => {
+    if (isSelected) {
+      return `${neighborhoodLabel} filter is currently selected.`;
+    }
+
+    return `Double tap to filter places to ${neighborhoodLabel}.`;
+  };
+
   const categories = [
     { id: 'restaurants', title: 'Restaurants & Cafes', icon: '🍽️' },
     { id: 'museums', title: 'Museums & Galleries', icon: '🏛️' },
@@ -45,8 +53,9 @@ export default function ExploreScreen(): React.ReactElement {
             autoCapitalize="none"
             autoCorrect={false}
             onSubmitEditing={Keyboard.dismiss}
-            accessibilityLabel="Search places"
-            accessibilityHint="Enter keywords to search places and activities"
+            accessibilityRole="search"
+            accessibilityLabel="Search places in Marrakech"
+            accessibilityHint="Type a place, activity, or category, then submit search."
           />
         </View>
 
@@ -61,7 +70,11 @@ export default function ExploreScreen(): React.ReactElement {
             style={[styles.chip, selectedNeighborhood === 'All' && styles.chipActive]}
             onPress={() => setSelectedNeighborhood('All')}
             accessibilityRole="button"
-            accessibilityLabel="Show all neighborhoods"
+            accessibilityLabel="All neighborhoods filter"
+            accessibilityHint={getNeighborhoodFilterHint(
+              selectedNeighborhood === 'All',
+              'All neighborhoods'
+            )}
             accessibilityState={{ selected: selectedNeighborhood === 'All' }}
           >
             <Text
@@ -76,7 +89,11 @@ export default function ExploreScreen(): React.ReactElement {
               style={[styles.chip, selectedNeighborhood === neighborhood && styles.chipActive]}
               onPress={() => setSelectedNeighborhood(neighborhood)}
               accessibilityRole="button"
-              accessibilityLabel={`Filter by ${neighborhood}`}
+              accessibilityLabel={`${neighborhood} neighborhood filter`}
+              accessibilityHint={getNeighborhoodFilterHint(
+                selectedNeighborhood === neighborhood,
+                neighborhood
+              )}
               accessibilityState={{ selected: selectedNeighborhood === neighborhood }}
             >
               <Text
@@ -96,7 +113,13 @@ export default function ExploreScreen(): React.ReactElement {
         </Text>
         <View style={styles.categoryGrid}>
           {categories.map((category) => (
-            <View key={category.id} style={styles.categoryCard}>
+            <View
+              key={category.id}
+              style={styles.categoryCard}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`Category: ${category.title}`}
+            >
               <Text style={styles.categoryIcon} accessible={false}>
                 {category.icon}
               </Text>
