@@ -28,17 +28,26 @@ graph TB
         Zustand[Zustand UI State]
         Query[TanStack Query Cache]
         i18n[i18n Context]
-        Favorites[Favorites]
+        UserData[User Data Store]
     end
 
     subgraph Data [Data Layer - Offline Core]
-        Bundle[Bundled Content Package]
+        Bundle[Bundled Baseline Content Pack]
         Manifest[Signed Content Manifest]
-        Sync[Delta Sync + Rollback]
-        SQLite[SQLite Catalog + FTS]
+        Scheduler[Background Update Scheduler]
+        Updater[Content Updater (ETag + Range + Resume)]
+        Sync[Delta Apply + Rollback]
+        SQLite[SQLite Content DB (catalog + per-locale FTS)]
+        UserDB[SQLite User DB (favorites, notes, reports)]
         FileCache[File-system Asset Cache]
-        Supabase[Supabase CMS Publish Source]
         MapTiles[Mapbox Offline Packs]
+    end
+
+    subgraph Remote [Remote Publishing (outside the app)]
+        CMS[Supabase (CMS / Editorial)]
+        Builder[Content Build + QA + Sign (CI)]
+        CDN[CDN: manifest + content packs]
+        CMS --> Builder --> CDN
     end
 
     Tabs --> Home
@@ -54,11 +63,13 @@ graph TB
     Tips --> Zustand
 
     Zustand --> SQLite
-    Query --> Sync
-    Sync --> Manifest
-    Sync --> FileCache
-    Sync --> Supabase
-    Zustand --> Favorites
+    Zustand --> UserDB
+    Query --> Scheduler
+    Scheduler --> Updater
+    Updater --> Manifest
+    Updater --> CDN
+    Updater --> FileCache
+    Updater --> Sync
 ```
 
 ---
@@ -71,8 +82,9 @@ graph TB
 - **State Management**: Zustand (UI/user state) + TanStack Query (sync/network cache)
 - **Maps**: @rnmapbox/maps with offline tile support
 - **i18n**: i18next + react-i18next + expo-localization (EN/FR/ES/DE/IT/NL/AR with RTL)
-- **Content**: Hybrid - bundled JSON (offline-first) + optional Supabase sync
-- **Storage**: AsyncStorage (settings only) + expo-sqlite (catalog/search) + expo-file-system (assets/packs)
+- **Content**: Pack-based - bundled baseline pack + signed updates from CDN (Supabase used only for authoring)
+- **Background tasks**: expo-task-manager + expo-background-fetch (manifest checks + resumable downloads)
+- **Storage**: AsyncStorage (settings only) + expo-sqlite (content DB + user DB) + expo-file-system (assets/packs)
 - **Data Validation**: Zod schemas for all inbound content (bundled and synced)
 
 ---
@@ -93,6 +105,7 @@ marrakechCompass3/
 │   ├── place/[id].tsx            # Place detail screen
 │   ├── itinerary/[id].tsx        # Itinerary detail screen
 │   ├── category/[slug].tsx       # Category listing screen
+│   ├── my-trip.tsx               # Saved places + itineraries + notes + checklist
 │   └── settings.tsx              # Language & preferences
 ├── src/
 │   ├── components/               # Reusable UI components
@@ -100,13 +113,17 @@ marrakechCompass3/
 │   │   ├── cards/                # PlaceCard, ItineraryCard, PickCard
 │   │   ├── maps/                 # MapView, Marker, OfflineIndicator
 │   │   └── layout/               # Header, TabBar, SafeArea
-│   ├── content/                  # Bundled JSON content (offline-first)
-│   │   ├── places.json           # All places data
-│   │   ├── itineraries.json      # Trip itineraries
-│   │   ├── picks.json            # Curated picks
-│   │   └── tips.json             # Toolkit sections
+│   ├── content/                  # Bundled baseline packs (offline-first)
+│   │   ├── manifest.json         # Baseline manifest (mirrors remote format)
+│   │   └── packs/                # One folder per locale (loaded on demand)
+│   │       ├── en/
+│   │       │   ├── places.json
+│   │       │   ├── itineraries.json
+│   │       │   ├── picks.json
+│   │       │   └── tips.json
+│   │       └── ...               # fr/es/de/it/nl/ar
 │   ├── hooks/                    # Custom hooks
-│   │   ├── useLocale.ts          # Localized content helper
+│   │   ├── useLocale.ts          # Locale selection + fallback chain (e.g., ar → fr → en)
 │   │   ├── useFavorites.ts       # Favorites management
 │   │   └── useOfflineStatus.ts   # Network/offline detection
 │   ├── data/                     # Local persistence + repositories
@@ -114,10 +131,22 @@ marrakechCompass3/
 │   │   └── repository.ts         # Typed data access
 │   ├── sync/                     # Remote update pipeline
 │   │   ├── manifest.ts           # Version/checksum handling
-│   │   ├── downloader.ts         # Delta package download
+│   │   ├── downloader.ts         # Resumable pack/delta download (ETag + Range)
+│   │   ├── scheduler.ts          # Background checks + constraints (Wi‑Fi only, low battery, etc.)
+│   │   ├── installer.ts          # Staged install + atomic activation
 │   │   └── rollback.ts           # Last-known-good recovery
 │   ├── search/                   # Offline search/indexing
-│   │   └── fts.ts                # SQLite FTS queries
+│   │   ├── fts.ts                # FTS5 queries (BM25 ranking)
+│   │   ├── indexer.ts            # Build/refresh indexes per locale
+│   │   └── suggest.ts            # Suggestions (recents, categories, did-you-mean)
+│   ├── routing/                  # Offline routing
+│   │   ├── graph.ts              # Graph loader + in-memory structures
+│   │   ├── astar.ts              # Pathfinding
+│   │   └── instructions.ts       # Turn hint generation
+│   ├── user/                     # User-generated data (offline-first)
+│   │   ├── favorites.ts          # Saved places/itineraries
+│   │   ├── notes.ts              # Notes + checklist items
+│   │   └── reports.ts            # Issue reports (offline queue → upload on connect)
 │   ├── monitoring/               # Telemetry + crash integration
 │   │   ├── crash.ts
 │   │   └── events.ts
@@ -127,7 +156,8 @@ marrakechCompass3/
 │   ├── services/                 # API & utilities
 │   │   ├── content.ts            # Content loading (local + remote)
 │   │   ├── maps.ts               # Mapbox utilities
-│   │   └── supabase.ts           # Optional Supabase client
+│   │   ├── routing.ts            # Offline routing graph + A* pathfinding
+│   │   └── contentApi.ts         # CDN fetcher (manifest + packs)
 │   ├── themes/                   # Design system (from marrakech-compass)
 │   │   └── index.ts              # Color tokens, typography, spacing
 │   ├── i18n/                     # Internationalization
@@ -146,6 +176,9 @@ marrakechCompass3/
 │   ├── images/                   # Place photos, hero images
 │   └── fonts/                    # Playfair Display, DM Sans
 └── tailwind.config.js            # NativeWind configuration
+
+tools/                            # Build-time tooling (not shipped in app bundle)
+└── content/                      # Export from CMS → validate → pack/delta → sign → upload to CDN
 ```
 
 ---
@@ -155,30 +188,51 @@ marrakechCompass3/
 Type-safe interfaces for all content:
 
 ```typescript
-// Localized string type for multi-language support
-type LocalizedString = Record<"en" | "fr" | "es" | "de" | "it" | "nl" | "ar", string>;
+type Locale = "en" | "fr" | "es" | "de" | "it" | "nl" | "ar";
+type ISODateTime = string; // ISO 8601
 
-interface Place {
+// Editorial content is stored per-locale in SQLite and only the active locale is read into memory.
+// Fallback chain example: device locale → user-selected locale → "fr" → "en".
+
+interface OpeningHours {
+  timezone: string; // e.g. "Africa/Casablanca"
+  weekly: Partial<Record<
+    "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun",
+    { start: string; end: string }[] // "HH:mm" 24h
+  >>;
+  notes?: string;
+  exceptions?: { date: string; closed?: boolean; ranges?: { start: string; end: string }[]; note?: string }[];
+}
+
+interface PlaceBase {
   id: string;
   slug: string;
-  name: LocalizedString;
-  description: LocalizedString;
   category: PlaceCategory;
   coordinates: { lat: number; lng: number };
-  address: string;
   neighborhood: string;
   priceRange?: 1 | 2 | 3 | 4;
   rating?: number;
   images: string[];
-  tips?: LocalizedString[];
-  openingHours?: string;
-  phone?: string;
-  website?: string;
+  openingHours?: OpeningHours;
+  contacts?: { address?: string; phone?: string; website?: string };
   featured?: boolean;
   status?: "open" | "temporarily-closed" | "seasonal";
-  lastVerifiedAt?: string; // ISO date
+  lastVerifiedAt?: ISODateTime;
   accessibilityTags?: ("wheelchair" | "step-free" | "family-friendly")[];
 }
+
+interface PlaceI18n {
+  placeId: string;
+  locale: Locale;
+  name: string;
+  description: string;
+  tips?: string[];
+  // Optional synonyms/transliterations to improve offline search quality
+  searchKeywords?: string[];
+}
+
+// Convenience shape used by UI (base + active locale row)
+type Place = PlaceBase & PlaceI18n;
 
 type PlaceCategory =
   | "restaurant"
@@ -198,30 +252,32 @@ type PlaceCategory =
 interface Itinerary {
   id: string;
   durationType: "1day" | "weekend" | "long-weekend" | "1week";
-  title: LocalizedString;
-  description: LocalizedString;
+  locale: Locale;
+  title: string;
+  description: string;
   days: ItineraryDay[];
 }
 
 interface ItineraryDay {
   dayNumber: number;
-  title: LocalizedString;
+  title: string;
   stops: ItineraryStop[];
 }
 
 interface ItineraryStop {
   placeId: string;
   timeSlot: string; // "9:00 AM - 11:00 AM"
-  notes: LocalizedString;
+  notes: string;
 }
 
 interface Pick {
   id: string;
   category: PickCategory;
   placeId: string;
-  title: LocalizedString;
-  tagline: LocalizedString;
-  whyWeLoveIt: LocalizedString;
+  locale: Locale;
+  title: string;
+  tagline: string;
+  whyWeLoveIt: string;
   images: string[];
 }
 
@@ -242,18 +298,20 @@ type PickCategory =
 interface TipSection {
   id: string;
   icon: string;
-  title: LocalizedString;
-  content: LocalizedString[];
-  lastReviewedAt: string; // ISO date
+  locale: Locale;
+  title: string;
+  content: string[];
+  lastReviewedAt: ISODateTime;
   sourceRefs?: string[];
   safetyLevel?: "general" | "important" | "critical";
 }
 
 interface ContentManifest {
   version: string;
-  publishedAt: string; // ISO date
+  publishedAt: ISODateTime;
   minAppVersion: string;
-  checksum: string;
+  checksum: string; // SHA-256 of manifest payload
+  signature: string; // Ed25519 signature of manifest payload
   deltaFrom?: string[];
 }
 ```
@@ -335,17 +393,27 @@ Each pick features:
 
 **Features:**
 
-- Offline full-text search (SQLite FTS) with transliteration + typo tolerance
+- Offline full-text search (SQLite FTS5) with:
+  - diacritic folding (café ≈ cafe)
+  - locale-aware tokenization (incl. Arabic)
+  - curated synonyms/transliterations via `searchKeywords`
+  - "Did you mean" suggestions (top candidates) instead of brittle full fuzzy matching
 - Filter by: neighborhood, price range, rating, open-now, distance, accessibility, family-friendly
-- Sort by: editorial score, distance, and "open soon"
+- Sort by: hybrid score (BM25 relevance + editorial score + distance + open-now/closing-soon)
+- Search suggestions:
+  - recent searches + recently viewed
+  - category quick filters
+  - "near me" quick results (no network required)
 - Place cards with image, name, category, rating, price
 - Heart icon to save to favorites
 - Tap to view detail screen
 
-**Saved/Favorites:**
+**My Trip (Saved + Notes):**
 
-- Accessible via header icon
-- Persisted offline via Zustand + AsyncStorage
+- Accessible via header icon (consistent entry from all tabs)
+- Saved places + saved itineraries + personal notes/checklists
+- Persisted offline in UserDB (more robust than growing AsyncStorage blobs)
+- Optional export/share as text for a day plan
 
 ---
 
@@ -368,7 +436,11 @@ Each pick features:
 - Current location indicator (with permission)
 - Search places on map
 - Online turn-by-turn walking directions when connected
-- Offline fallback navigation: cached route previews + bearing/waypoint guidance
+- Offline navigation inside downloaded zones:
+  - downloadable lightweight pedestrian routing graph per zone
+  - on-device A* route + route polyline overlay
+  - simple turn hints + "off route" detection
+- Outside downloaded zones: fallback to bearing/waypoint guidance (clearly labeled as approximate)
 - Recenter button
 - Layer toggle (streets vs satellite)
 
@@ -404,6 +476,13 @@ Expandable accordion sections with essential travel info:
 Quick reference cards for most important info with `lastReviewedAt` stamp.
 Persistent "Emergency Mode" action available from all tabs.
 
+**Emergency Mode UX requirements:**
+
+- one-handed reachable CTA (bottom sheet)
+- one-tap call shortcuts + copy-to-clipboard for key numbers/addresses
+- offline phrase cards for critical scenarios (lost passport, medical help)
+- "Share my location" message templates (SMS/WhatsApp text) when service exists
+
 ---
 
 ### Settings Screen
@@ -411,7 +490,10 @@ Persistent "Emergency Mode" action available from all tabs.
 - **Language Selection**: EN / FR / ES / DE / IT / NL / AR (with flag icons, RTL support for Arabic)
 - **Offline Maps**: Download status, manage storage
 - **Safety Center**: Emergency contacts, embassy list, SOS message templates
+- **My Trip**: Export data, clear notes/checklists, manage saved items
 - **Data Usage Mode**: Wi-Fi-only downloads, image quality, map storage cap
+- **Accessibility**: Text size, reduce motion, high contrast, RTL preview
+- **Theme**: System / Light / Dark
 - **Clear Cache**: Reset local data
 - **About**: App version, credits, feedback link
 
@@ -440,6 +522,10 @@ colors: {
   sand: '#D4C4A8',
   gold: '#D9A441',
   ochre: '#B07832',
+  // Dark mode semantic tokens (keep Moroccan feel, improve contrast)
+  backgroundDark: '#14110F',
+  foregroundDark: '#F3EEE7',
+  cardDark: '#1E1916',
 }
 ```
 
@@ -478,7 +564,7 @@ module.exports = {
 
 ## Key Dependencies
 
-```json
+```jsonc
 {
   "expo": "~54.0.0",
   "expo-router": "~6.0.0",
@@ -496,7 +582,15 @@ module.exports = {
   "@expo/vector-icons": "^15.0.0",
   "expo-font": "~14.0.0",
   "expo-linear-gradient": "~15.0.0",
-  "@supabase/supabase-js": "^2.0.0"
+  "@shopify/flash-list": "^1.7.0",
+
+  // Content integrity + background updates (install SDK-aligned versions via `expo install`)
+  "expo-image": "SDK-aligned",
+  "expo-crypto": "SDK-aligned",
+  "expo-updates": "SDK-aligned",
+  "expo-task-manager": "SDK-aligned",
+  "expo-background-fetch": "SDK-aligned",
+  "tweetnacl": "^1.0.3"
 }
 ```
 
@@ -504,14 +598,15 @@ module.exports = {
 
 ## Offline Strategy
 
-### Content (Bundled JSON - Offline First)
+### Content (Signed Packs - Offline First)
 
 1. Ship a signed baseline content package with the app.
-2. On connectivity, fetch a lightweight manifest (`version`, `checksum`, `deltaFrom`).
-3. Validate downloaded packages against checksum + schema before activation.
-4. Apply delta updates into SQLite/file cache atomically.
-5. Keep current + previous content versions for instant rollback.
-6. Fall back to last-known-good package on any validation or migration failure.
+2. On connectivity, fetch a lightweight manifest from CDN with HTTP caching (ETag/If-None-Match).
+3. Verify manifest signature (embedded public key) before trusting any remote URLs/checksums.
+4. Download pack/delta with resumable Range requests; enforce low-storage + Wi‑Fi-only policies.
+5. Stage install into a new **content DB file + asset directory**, then atomically swap pointers.
+6. Keep current + previous content versions for instant rollback.
+7. Fall back to last-known-good package on any validation or migration failure.
 
 ### Maps (Mapbox Offline Tiles)
 
@@ -533,6 +628,9 @@ module.exports = {
 
 - Cold start P75: <2.0s on mid-range Android, <1.5s on recent iPhone
 - Scroll performance: 55+ FPS in list/map interactions
+- Memory P75: <250MB on mid-range Android during heavy scrolling (image lists)
+- Largest JS bundle (gzip): keep under a defined budget (track in CI)
+- Content DB query P95: <50ms for common list/search queries
 - Crash-free sessions: >=99.5%
 - Max map/content download failure rate: <3%
 
@@ -542,6 +640,24 @@ module.exports = {
 - Structured event taxonomy for key journeys (search, save, map download, emergency mode)
 - Privacy-first analytics: no precise location persisted without explicit consent
 
+## Diagnostics & Self-Healing
+
+- Diagnostics screen (in Settings):
+  - content manifest version + signature verification status
+  - last update attempt + failure reason (if any)
+  - map pack inventory + storage usage
+  - search index status (per locale) + "Rebuild index" action
+- Safe mode:
+  - if content DB fails validation/open: automatically roll back to last-known-good
+  - allow user to export a redacted debug bundle (logs + versions) for support
+
+## Content Publishing QA (CI)
+
+- Validate schemas (Zod) + referential integrity (placeId links, missing images)
+- Translation completeness report per locale
+- Link checking (websites) + coordinate sanity checks
+- Generate a "Content Health" summary embedded in manifest metadata
+
 ## Testing & Release Gates
 
 - Unit tests: stores, data validation, sync conflict handling
@@ -549,17 +665,24 @@ module.exports = {
 - E2E tests (iOS/Android): core tab flows in offline and flaky-network modes
 - Release gate: cannot ship if offline smoke suite fails
 
+**Additional release gates:**
+
+- Content security gate: manifest signature verification + pack checksum verification tests must pass
+- Performance gate: fail build on cold-start/scroll regression beyond budget thresholds
+- Size gate: fail build if JS bundle or app install size exceeds budget
+
 ---
 
 ## Implementation Order
 
 1. **Phase A - Foundation**: Expo setup, navigation shell, CI, lint/test baseline
-2. **Phase B - Offline Data Core**: schema, manifest pipeline, validation, rollback, seed content
-3. **Phase C - Core UX**: Home/Explore/Tips + detail screens wired to local repository
-4. **Phase D - Maps & Search**: map packs, FTS search, download manager, offline fallback navigation
-5. **Phase E - Planner & Safety**: emergency mode and safety center
-6. **Phase F - Sync & Observability**: optional remote publish sync, telemetry, crash reporting
-7. **Phase G - Launch Hardening**: performance budgets, offline E2E, store build/release
+2. **Phase B - Content Pipeline Spike**: pack format, signing/verification, staged install + rollback (de-risk early)
+3. **Phase C - Offline Data Core**: schema, per-locale indexing, seed content, safe mode
+4. **Phase D - Maps Early**: Mapbox integration + offline packs + download manager (de-risk early)
+5. **Phase E - Core UX**: Home/Explore/Tips + detail screens wired to repositories
+6. **Phase F - Search Quality Pass**: ranking, suggestions, filters, "open now" correctness
+7. **Phase G - Planner, My Trip & Safety**: notes/checklists, emergency mode polish
+8. **Phase H - Observability & Launch Hardening**: crash reporting, diagnostics, perf+size gates, store release
 
 ---
 
@@ -567,19 +690,22 @@ module.exports = {
 
 - [ ] Initialize Expo project with TypeScript, NativeWind, copy theme system from marrakech-compass
 - [ ] Configure Expo Router with 5-tab navigation and nested routes (place/[id], itinerary/[id], category/[slug])
-- [ ] Create TypeScript types (Place, Itinerary, Pick, Tip) and bundled JSON content files in content/ directory
+- [ ] Create TypeScript types (Place, PlaceBase, PlaceI18n, Itinerary, Pick, Tip) and per-locale bundled JSON content in content/packs/ directory
 - [ ] Configure i18next with expo-localization, create translation files for EN/FR/ES/DE/IT/NL/AR (with RTL support)
-- [ ] Set up data layer (SQLite + repository + schema validation + rollback)
-- [ ] Keep AsyncStorage for settings/favorites only; avoid large content blobs in AsyncStorage
+- [ ] Set up data layer (SQLite content DB + user DB + repository + schema validation + rollback)
+- [ ] Keep AsyncStorage for settings only; avoid large content blobs in AsyncStorage
 - [ ] Create reusable NativeWind components (Card, Button, PlaceCard, AccordionSection, CategoryPill, etc.)
 - [ ] Implement Home with weather widget, Plan Your Trip (itineraries), quick tools, and highlights carousel
 - [ ] Implement Our Picks with editorial-style category cards and rich imagery
-- [ ] Implement Explore with offline FTS search, transliteration, advanced filters, and favorites
-- [ ] Implement Maps tab with multi-pack offline downloads, POI markers, online routing + offline fallback navigation
+- [ ] Implement Explore with offline FTS5 search, BM25 ranking, suggestions, advanced filters, and favorites
+- [ ] Implement Maps tab with multi-pack offline downloads, POI markers, online routing + offline A* navigation
 - [ ] Implement Tips tab with accordion sections including safety and emergency contacts
 - [ ] Create place detail, itinerary detail, and category listing screens
+- [ ] Implement My Trip screen (saved places + itineraries + notes + checklists + export)
 - [ ] Configure Mapbox SDK with offline region downloads for Marrakech (Medina + surrounding areas)
-- [ ] Set up optional Supabase backend for remote content updates (can be deferred post-MVP)
+- [ ] Set up content publishing pipeline (export → validate → pack/delta → sign → upload to CDN)
+- [ ] Embed public signing key in app + implement signature verification before applying updates
 - [ ] Add telemetry, crash reporting, offline-safe error handling, and performance instrumentation
-- [ ] Add unit/integration/E2E test suites with offline smoke gates
+- [ ] Implement diagnostics screen with content/map status and self-healing actions
+- [ ] Add unit/integration/E2E test suites with offline smoke gates + security/performance/size gates
 - [ ] Set up EAS Build for iOS and Android app store deployment
