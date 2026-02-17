@@ -26,7 +26,7 @@ graph TB
 
     subgraph State [State Layer]
         Zustand[Zustand UI State]
-        Query[TanStack Query Cache]
+        SyncStore[Zustand Sync Coordinator]
         i18n[i18n Context]
         UserData[User Data Store]
     end
@@ -62,9 +62,11 @@ graph TB
     Maps --> MapTiles
     Tips --> Zustand
 
-    Zustand --> SQLite
+    Zustand --> Repository
+    Repository --> SQLite
+    SyncStore -.->|"content-swapped" event| Repository
     Zustand --> UserDB
-    Query --> Scheduler
+    SyncStore --> Scheduler
     Scheduler --> Updater
     Updater --> Manifest
     Updater --> CDN
@@ -78,8 +80,9 @@ graph TB
 
 - **Framework**: Expo SDK 54 (Managed Workflow)
 - **Navigation**: Expo Router v6 (file-based routing)
+- **Deep Linking**: Expo Router universal links + `expo-linking` for share-to-app flows
 - **Styling**: NativeWind v4 (Tailwind CSS for React Native) + theme tokens from marrakech-compass
-- **State Management**: Zustand (UI/user state) + TanStack Query (sync/network cache)
+- **State Management**: Zustand (UI/user state + sync coordination)
 - **Maps**: @rnmapbox/maps with offline tile support
 - **i18n**: i18next + react-i18next + expo-localization (EN/FR/ES/DE/IT/NL/AR with RTL)
 - **Content**: Pack-based - bundled baseline pack + signed updates from CDN (Supabase used only for authoring)
@@ -105,6 +108,8 @@ marrakechCompass3/
 │   ├── place/[id].tsx            # Place detail screen
 │   ├── itinerary/[id].tsx        # Itinerary detail screen
 │   ├── category/[slug].tsx       # Category listing screen
+│   ├── day-trip/[id].tsx         # Day trip detail screen
+│   ├── phrasebook.tsx            # Offline phrase book (accessible from Tips + Home quick tools)
 │   ├── my-trip.tsx               # Saved places + itineraries + notes + checklist
 │   └── settings.tsx              # Language & preferences
 ├── src/
@@ -128,7 +133,8 @@ marrakechCompass3/
 │   │   └── useOfflineStatus.ts   # Network/offline detection
 │   ├── data/                     # Local persistence + repositories
 │   │   ├── schema.ts             # SQLite schema and migrations
-│   │   └── repository.ts         # Typed data access
+│   │   ├── repository.ts         # Typed read/write data access (places, itineraries, picks, tips)
+│   │   └── useContentQuery.ts    # Reactive hook: subscribes to DB change events, auto-invalidates on content swap
 │   ├── sync/                     # Remote update pipeline
 │   │   ├── manifest.ts           # Version/checksum handling
 │   │   ├── downloader.ts         # Resumable pack/delta download (ETag + Range)
@@ -204,6 +210,18 @@ interface OpeningHours {
   exceptions?: { date: string; closed?: boolean; ranges?: { start: string; end: string }[]; note?: string }[];
 }
 
+interface PlaceImage {
+  /** Relative path within the content pack (e.g. "images/places/bahia-1") */
+  basePath: string;
+  /** Available widths; app selects best match for device pixel density */
+  widths: number[];          // e.g. [400, 800, 1200]
+  /** ThumbHash string for instant placeholder rendering */
+  thumbhash: string;
+  /** Aspect ratio (width/height) to reserve layout space and prevent CLS */
+  aspectRatio: number;
+  alt?: string;
+}
+
 interface PlaceBase {
   id: string;
   slug: string;
@@ -212,7 +230,7 @@ interface PlaceBase {
   neighborhood: string;
   priceRange?: 1 | 2 | 3 | 4;
   rating?: number;
-  images: string[];
+  images: PlaceImage[];
   openingHours?: OpeningHours;
   contacts?: { address?: string; phone?: string; website?: string };
   featured?: boolean;
@@ -248,6 +266,42 @@ type PlaceCategory =
   | "hammam"
   | "spa"
   | "monument";
+
+interface DayTrip {
+  id: string;
+  slug: string;
+  locale: Locale;
+  title: string;
+  description: string;
+  heroImage: PlaceImage;
+  /** Approximate one-way travel time from Marrakech center */
+  travelTimeMinutes: number;
+  /** How to get there */
+  transportOptions: {
+    mode: "private-car" | "shared-minibus" | "bus" | "organized-tour";
+    description: string;
+    estimatedCostDH?: { min: number; max: number };
+  }[];
+  /** Best months to visit (1-12) */
+  bestMonths: number[];
+  /** What to bring */
+  packingTips: string[];
+  highlights: { placeId?: string; name: string; description: string }[];
+  warnings?: string[];
+  lastVerifiedAt: ISODateTime;
+}
+
+interface Phrase {
+  id: string;
+  category: "greeting" | "shopping" | "directions" | "food" | "emergency" | "transport" | "courtesy";
+  locale: Locale;
+  english: string;
+  darija: string;
+  darijaLatin: string;           // Transliteration for pronunciation
+  french: string;
+  /** Relative path to bundled audio clip (compressed Opus, ~2-5 KB each) */
+  audioPath?: string;
+}
 
 interface Itinerary {
   id: string;
@@ -308,11 +362,17 @@ interface TipSection {
 
 interface ContentManifest {
   version: string;
+  /** Monotonic integer that must strictly increase; reject manifests with lower or equal sequence */
+  sequence: number;
   publishedAt: ISODateTime;
   minAppVersion: string;
-  checksum: string; // SHA-256 of manifest payload
-  signature: string; // Ed25519 signature of manifest payload
+  checksum: string;            // SHA-256 of manifest payload
+  signature: string;           // Ed25519 signature of manifest payload
   deltaFrom?: string[];
+  /** Per-pack checksums: key = pack filename, value = SHA-256 hex digest */
+  packChecksums: Record<string, string>;
+  /** Index of the signing key used (supports rotation with backup keys) */
+  signingKeyIndex: number;
 }
 ```
 
@@ -342,6 +402,7 @@ interface ContentManifest {
 - Emergency contacts quick access
 - Currency converter widget
 - Prayer times (for context)
+- Quick link to Phrase Book (most-used greetings + bargaining phrases)
 
 **Quick Links:**
 
@@ -376,6 +437,8 @@ Each pick features:
 - "Why We Love It" editorial description
 - Practical tips
 - Tap to view full place detail with map
+- Content freshness indicator (subtle badge based on `lastVerifiedAt`)
+- Tap freshness badge to submit a data correction report
 
 ---
 
@@ -391,6 +454,12 @@ Each pick features:
 - Hammams & Spas
 - Day Trips (Atlas Mountains, Essaouira, Ouzoud)
 
+**Neighborhood Quick Filters:**
+
+- Horizontal scrollable chips above category grid: Medina, Gueliz, Hivernage, Mellah, Palmeraie, All
+- Selecting a neighborhood scopes all category results and search to that area
+- "Near Me" chip uses device location to auto-select closest neighborhood (or shows distance-sorted if between neighborhoods)
+
 **Features:**
 
 - Offline full-text search (SQLite FTS5) with:
@@ -398,13 +467,17 @@ Each pick features:
   - locale-aware tokenization (incl. Arabic)
   - curated synonyms/transliterations via `searchKeywords`
   - "Did you mean" suggestions (top candidates) instead of brittle full fuzzy matching
-- Filter by: neighborhood, price range, rating, open-now, distance, accessibility, family-friendly
+- Filter by: neighborhood, price range, rating, **open-now (persistent toggle)**, distance, accessibility, family-friendly
 - Sort by: hybrid score (BM25 relevance + editorial score + distance + open-now/closing-soon)
+- **Open/closed status badge on all place cards**: real-time computation from `OpeningHours` + device clock
+  - States: "Open" (green) / "Closes soon · Xm" (amber, <60 min) / "Closed · Opens HH:MM" (muted)
+  - Respects `exceptions` for holidays, Ramadan, seasonal closures
+- Subtle freshness indicator on cards with `lastVerifiedAt` > 6 months old
 - Search suggestions:
   - recent searches + recently viewed
   - category quick filters
   - "near me" quick results (no network required)
-- Place cards with image, name, category, rating, price
+- Place cards with image, name, category, rating, price (images render ThumbHash placeholder instantly, crossfade on load)
 - Heart icon to save to favorites
 - Tap to view detail screen
 
@@ -493,9 +566,22 @@ Persistent "Emergency Mode" action available from all tabs.
 - **My Trip**: Export data, clear notes/checklists, manage saved items
 - **Data Usage Mode**: Wi-Fi-only downloads, image quality, map storage cap
 - **Accessibility**: Text size, reduce motion, high contrast, RTL preview
+  - All interactive elements carry `accessibilityLabel` and `accessibilityRole`
+  - Map POIs exposed as an accessible list alternative (screen reader users can browse POIs as a sorted list instead of tapping map markers)
+  - Dynamic type: all text uses relative sizing; tested at 200% scale on both platforms
+  - Reduce motion: disables all Reanimated/LayoutAnimation transitions; replaces with instant state changes
+  - Minimum touch target: 44×44 pt on all interactive elements (per Apple HIG / Material guidelines)
 - **Theme**: System / Light / Dark
 - **Clear Cache**: Reset local data
 - **About**: App version, credits, feedback link
+
+### Sharing & Deep Links
+
+- Place and itinerary detail screens include a "Share" button
+- Generates a universal link (e.g., `https://marrakechcompass.app/place/bahia-palace`)
+- If recipient has app installed: opens directly to detail screen
+- If not: falls back to a lightweight web preview page (static, hosted on CDN)
+- Share sheet includes: name, one-line description, hero image thumbnail
 
 ---
 
@@ -572,7 +658,6 @@ module.exports = {
   "nativewind": "^4.0.0",
   "tailwindcss": "^3.4.0",
   "zustand": "^4.5.0",
-  "@tanstack/react-query": "^5.0.0",
   "zod": "^3.23.0",
   "expo-sqlite": "~15.0.0",
   "i18next": "^23.0.0",
@@ -602,11 +687,13 @@ module.exports = {
 
 1. Ship a signed baseline content package with the app.
 2. On connectivity, fetch a lightweight manifest from CDN with HTTP caching (ETag/If-None-Match).
-3. Verify manifest signature (embedded public key) before trusting any remote URLs/checksums.
+3. Verify manifest signature against pinned public key(s) — app ships with primary + backup key.
+   Reject manifests with `sequence` ≤ last-applied sequence (replay protection).
 4. Download pack/delta with resumable Range requests; enforce low-storage + Wi‑Fi-only policies.
-5. Stage install into a new **content DB file + asset directory**, then atomically swap pointers.
-6. Keep current + previous content versions for instant rollback.
-7. Fall back to last-known-good package on any validation or migration failure.
+5. Verify per-pack SHA-256 checksums against manifest's `packChecksums` before staging.
+6. Stage install into a new **content DB file + asset directory**, then atomically swap pointers.
+7. Keep current + previous content versions for instant rollback.
+8. Fall back to last-known-good package on any validation or migration failure.
 
 ### Maps (Mapbox Offline Tiles)
 
@@ -634,6 +721,26 @@ module.exports = {
 - Crash-free sessions: >=99.5%
 - Max map/content download failure rate: <3%
 
+### Cold Start Critical Path (no blocking work outside this sequence)
+
+1. JS bundle load + Hermes bytecode init
+2. Open SQLite content DB (already populated) OR first-launch: hydrate **active locale only** from bundled JSON
+3. Mount tab navigator shell with skeleton placeholders
+4. Query repository for Home screen data (hero, highlights, weather cache)
+5. Render Home screen; remaining tabs lazy-mount on first visit
+
+### Lazy Locale Hydration
+
+- First launch: insert only the device's detected locale (+ English fallback) into content DB
+- On language switch: hydrate the new locale from bundled pack on a background thread, show loading indicator
+- FTS indexes: build only for active locale; rebuild on switch (takes <500ms for typical content size)
+
+### Image Loading Strategy
+
+- List screens: prefetch first 10 card thumbnails (400w WebP); load rest on scroll via expo-image's built-in priority system
+- Detail screens: load 800w hero immediately; lazy-load gallery images
+- All images: render ThumbHash placeholder instantly, crossfade on load
+
 ## Observability & Analytics
 
 - Crash reporting with offline queue and upload-on-connect
@@ -651,9 +758,21 @@ module.exports = {
   - if content DB fails validation/open: automatically roll back to last-known-good
   - allow user to export a redacted debug bundle (logs + versions) for support
 
+### Error Boundaries & Degradation Tiers
+
+- Each tab wrapped in a React error boundary with a "Something went wrong — tap to retry" fallback
+- Degradation tiers:
+  - **Tier 0 (healthy)**: All systems nominal
+  - **Tier 1 (degraded search)**: FTS index corrupt → disable search, show browse-only with category filters; auto-rebuild in background
+  - **Tier 2 (degraded maps)**: Map SDK crash → show static fallback map image with POI list; link to external maps app
+  - **Tier 3 (degraded content)**: Content DB corrupt → rollback to baseline; show banner "Using cached content"
+  - **Tier 4 (emergency only)**: Catastrophic failure → show Emergency Mode (contacts, phrase cards, share-location) — always works
+- Tier transitions logged to crash reporter with full context
+
 ## Content Publishing QA (CI)
 
 - Validate schemas (Zod) + referential integrity (placeId links, missing images)
+- Image pipeline: source images → resize to 400/800/1200w → convert to WebP → generate ThumbHash → embed in content JSON
 - Translation completeness report per locale
 - Link checking (websites) + coordinate sanity checks
 - Generate a "Content Health" summary embedded in manifest metadata
@@ -676,13 +795,14 @@ module.exports = {
 ## Implementation Order
 
 1. **Phase A - Foundation**: Expo setup, navigation shell, CI, lint/test baseline
-2. **Phase B - Content Pipeline Spike**: pack format, signing/verification, staged install + rollback (de-risk early)
-3. **Phase C - Offline Data Core**: schema, per-locale indexing, seed content, safe mode
-4. **Phase D - Maps Early**: Mapbox integration + offline packs + download manager (de-risk early)
-5. **Phase E - Core UX**: Home/Explore/Tips + detail screens wired to repositories
-6. **Phase F - Search Quality Pass**: ranking, suggestions, filters, "open now" correctness
-7. **Phase G - Planner, My Trip & Safety**: notes/checklists, emergency mode polish
-8. **Phase H - Observability & Launch Hardening**: crash reporting, diagnostics, perf+size gates, store release
+2. **Phase B - Design System & i18n**: Component library (NativeWind), theme tokens, i18n setup with AR/RTL proven on a test screen. Proving RTL early avoids expensive retrofits.
+3. **Phase C - Content Pipeline Spike**: pack format, signing/verification (with key rotation + replay protection), staged install + rollback (de-risk early)
+4. **Phase D - Offline Data Core**: schema, repository layer with reactive queries, lazy locale hydration, seed content, safe mode, error boundaries
+5. **Phase E - Maps Early**: Mapbox integration + offline packs + download manager (de-risk early)
+6. **Phase F - Core UX Screens**: Home/Explore/Tips + detail screens wired to repositories. Skeleton placeholders, image loading with ThumbHash.
+7. **Phase G - Search & Discovery**: FTS5 ranking, suggestions, open-now filter, neighborhood browsing, phrase book
+8. **Phase H - Planner, My Trip & Safety**: notes/checklists, trip data export/import, emergency mode polish
+9. **Phase I - Observability & Launch Hardening**: crash reporting, diagnostics, perf+size gates, cloud backup, store release
 
 ---
 
