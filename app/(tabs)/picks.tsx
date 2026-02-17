@@ -1,6 +1,13 @@
 import type React from 'react';
 import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { PickCategory } from '../../src/types';
+
+interface PickCategoryCard {
+  id: PickCategory;
+  title: string;
+  icon: string;
+}
 
 /**
  * Our Picks screen - Coup de Coeur
@@ -20,18 +27,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  * - Best Hammam Experience
  */
 export default function PicksScreen(): React.ReactElement {
-  const categories = [
+  const categories: PickCategoryCard[] = [
     { id: 'architecture', title: 'Best Architectural Experience', icon: '🏛️' },
-    { id: 'djemaa', title: 'Best Djemaa El Fna Experience', icon: '🌅' },
+    { id: 'djemaa-el-fna', title: 'Best Djemaa El Fna Experience', icon: '🌅' },
     { id: 'shopping', title: 'Best Shopping / Souks', icon: '🛍️' },
-    { id: 'dining', title: 'Best Dining Experience', icon: '🍽️' },
+    { id: 'cuisine', title: 'Best Dining Experience', icon: '🍽️' },
     { id: 'stay', title: 'Best Place to Stay', icon: '🏨' },
-    { id: 'hidden', title: 'Best Hidden Gem', icon: '💎' },
-    { id: 'rooftop', title: 'Best Rooftop View', icon: '🌆' },
-    { id: 'art', title: 'Best Art & Design', icon: '🎨' },
+    { id: 'hidden-gem', title: 'Best Hidden Gem', icon: '💎' },
+    { id: 'rooftop-view', title: 'Best Rooftop View', icon: '🌆' },
+    { id: 'art-design', title: 'Best Art & Design', icon: '🎨' },
     { id: 'cultural', title: 'Best Cultural Experiences', icon: '🎭' },
     { id: 'museum', title: 'Best Museum Experiences', icon: '🖼️' },
-    { id: 'newtown', title: 'Best Experience in New Town', icon: '🌃' },
+    { id: 'new-town', title: 'Best Experience in New Town', icon: '🌃' },
     { id: 'hammam', title: 'Best Hammam Experience', icon: '🛁' },
   ];
 

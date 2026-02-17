@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS places_i18n (
     place_id TEXT NOT NULL,
     locale TEXT NOT NULL,
     name TEXT NOT NULL,
-    description TEXT,
+    description TEXT NOT NULL,
     tips TEXT,             -- JSON array
     search_keywords TEXT,  -- JSON array
     PRIMARY KEY (place_id, locale)
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS itineraries (
     duration_type TEXT NOT NULL,
     locale TEXT NOT NULL,
     title TEXT NOT NULL,
-    description TEXT,
+    description TEXT NOT NULL,
     days TEXT NOT NULL     -- JSON array of ItineraryDay
 );
 
@@ -68,9 +68,9 @@ CREATE TABLE IF NOT EXISTS picks (
     place_id TEXT NOT NULL,
     locale TEXT NOT NULL,
     title TEXT NOT NULL,
-    tagline TEXT,
-    why_we_love_it TEXT,
-    images TEXT            -- JSON array
+    tagline TEXT NOT NULL,
+    why_we_love_it TEXT NOT NULL,
+    images TEXT NOT NULL   -- JSON array
 );
 
 -- tips
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS tips (
     icon TEXT NOT NULL,
     locale TEXT NOT NULL,
     title TEXT NOT NULL,
-    content TEXT,          -- JSON array
-    last_reviewed_at TEXT,
+    content TEXT NOT NULL, -- JSON array
+    last_reviewed_at TEXT NOT NULL,
     safety_level TEXT DEFAULT 'general'
 );
 

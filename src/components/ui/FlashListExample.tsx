@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 
@@ -22,6 +23,14 @@ function generateSampleData(count: number): SampleItem[] {
   }));
 }
 
+function normalizeItemCount(itemCount: number): number {
+  if (!Number.isFinite(itemCount)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.trunc(itemCount));
+}
+
 interface FlashListExampleProps {
   /** Number of items to display (default: 100) */
   itemCount?: number;
@@ -38,7 +47,11 @@ interface FlashListExampleProps {
  * - Automatic item size calculation (no estimatedItemSize needed in v2)
  */
 export function FlashListExample({ itemCount = 100 }: FlashListExampleProps): React.ReactElement {
-  const data = generateSampleData(itemCount);
+  const normalizedItemCount = useMemo((): number => normalizeItemCount(itemCount), [itemCount]);
+  const data = useMemo(
+    (): SampleItem[] => generateSampleData(normalizedItemCount),
+    [normalizedItemCount]
+  );
 
   return (
     <View style={styles.container}>
