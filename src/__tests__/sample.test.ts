@@ -1,30 +1,23 @@
-/**
- * Sample test to verify Jest setup is working.
- * This file can be removed once real tests are added.
- */
+import { getLocaleFallbackChain, isValidLocale } from '../hooks/useLocale';
 
-describe('Jest Setup', () => {
-  it('should run a basic test', () => {
-    expect(1 + 1).toBe(2);
+describe('Locale helpers', () => {
+  it('returns the Arabic fallback chain ar -> fr -> en', () => {
+    expect(getLocaleFallbackChain('ar')).toEqual(['ar', 'fr', 'en']);
   });
 
-  it('should handle async tests', async () => {
-    const result = await Promise.resolve('success');
-    expect(result).toBe('success');
+  it('returns locale -> en for non-English locales', () => {
+    expect(getLocaleFallbackChain('fr')).toEqual(['fr', 'en']);
+    expect(getLocaleFallbackChain('es')).toEqual(['es', 'en']);
   });
 
-  it('should work with TypeScript types', () => {
-    interface TestInterface {
-      name: string;
-      value: number;
-    }
+  it('returns only en when locale is already English', () => {
+    expect(getLocaleFallbackChain('en')).toEqual(['en']);
+  });
 
-    const testObj: TestInterface = {
-      name: 'test',
-      value: 42,
-    };
-
-    expect(testObj.name).toBe('test');
-    expect(testObj.value).toBe(42);
+  it('validates supported locale codes', () => {
+    expect(isValidLocale('en')).toBe(true);
+    expect(isValidLocale('ar')).toBe(true);
+    expect(isValidLocale('pt')).toBe(false);
+    expect(isValidLocale('')).toBe(false);
   });
 });
