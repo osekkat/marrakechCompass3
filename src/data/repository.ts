@@ -45,18 +45,18 @@ export interface Repository {
 
   // Itineraries
   getItinerary(id: string, locale: Locale): Promise<Itinerary | null>;
-  getItineraries(locale: Locale, durationType?: string): Promise<Itinerary[]>;
+  getItineraries(locale: Locale, durationType?: Itinerary['durationType']): Promise<Itinerary[]>;
 
   // Picks
   getPick(id: string, locale: Locale): Promise<Pick | null>;
-  getPicks(locale: Locale, category?: string): Promise<Pick[]>;
+  getPicks(locale: Locale, category?: Pick['category']): Promise<Pick[]>;
 
   // Tips
   getTipSection(id: string, locale: Locale): Promise<TipSection | null>;
   getTipSections(locale: Locale): Promise<TipSection[]>;
 
   // Phrases
-  getPhrases(locale: Locale, category?: string): Promise<Phrase[]>;
+  getPhrases(locale: Locale, category?: Phrase['category']): Promise<Phrase[]>;
 
   // Favorites (user DB)
   getFavorites(): Promise<Favorite[]>;

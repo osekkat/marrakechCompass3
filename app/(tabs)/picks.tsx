@@ -37,14 +37,19 @@ export default function PicksScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <Text style={styles.intro}>
           Our handpicked favorites - the very best of Marrakech, curated just for you.
         </Text>
 
         {categories.map((category) => (
           <View key={category.id} style={styles.card}>
-            <Text style={styles.cardIcon}>{category.icon}</Text>
+            <Text style={styles.cardIcon} accessible={false}>
+              {category.icon}
+            </Text>
             <Text style={styles.cardTitle}>{category.title}</Text>
           </View>
         ))}
@@ -60,6 +65,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   intro: {
     fontSize: 16,

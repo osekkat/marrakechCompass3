@@ -1,5 +1,5 @@
 import type React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 /**
@@ -16,50 +16,61 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function MapsScreen(): React.ReactElement {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <View style={styles.mapPlaceholder}>
-        <View style={styles.mapOverlay}>
-          <Text style={styles.mapIcon}>🗺️</Text>
-          <Text style={styles.mapTitle}>Offline Maps</Text>
-          <Text style={styles.mapSubtitle}>Mapbox integration coming soon...</Text>
-          <Text style={styles.mapInfo}>
-            Download map packs for offline navigation in the Medina and beyond.
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <View style={styles.mapPlaceholder}>
+          <View style={styles.mapOverlay}>
+            <Text style={styles.mapIcon} accessible={false}>
+              🗺️
+            </Text>
+            <Text style={styles.mapTitle} accessibilityRole="header">
+              Offline Maps
+            </Text>
+            <Text style={styles.mapSubtitle}>Mapbox integration coming soon...</Text>
+            <Text style={styles.mapInfo}>
+              Download map packs for offline navigation in the Medina and beyond.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.downloadPanel}>
+          <Text style={styles.panelTitle} accessibilityRole="header">
+            Available Map Packs
           </Text>
-        </View>
-      </View>
 
-      <View style={styles.downloadPanel}>
-        <Text style={styles.panelTitle}>Available Map Packs</Text>
+          <View style={styles.packItem}>
+            <View style={styles.packInfo}>
+              <Text style={styles.packName}>Medina Core</Text>
+              <Text style={styles.packSize}>~25 MB</Text>
+            </View>
+            <View style={styles.packStatus}>
+              <Text style={styles.statusText}>Not Downloaded</Text>
+            </View>
+          </View>
 
-        <View style={styles.packItem}>
-          <View style={styles.packInfo}>
-            <Text style={styles.packName}>Medina Core</Text>
-            <Text style={styles.packSize}>~25 MB</Text>
+          <View style={styles.packItem}>
+            <View style={styles.packInfo}>
+              <Text style={styles.packName}>City Center</Text>
+              <Text style={styles.packSize}>~50 MB</Text>
+            </View>
+            <View style={styles.packStatus}>
+              <Text style={styles.statusText}>Not Downloaded</Text>
+            </View>
           </View>
-          <View style={styles.packStatus}>
-            <Text style={styles.statusText}>Not Downloaded</Text>
-          </View>
-        </View>
 
-        <View style={styles.packItem}>
-          <View style={styles.packInfo}>
-            <Text style={styles.packName}>City Center</Text>
-            <Text style={styles.packSize}>~50 MB</Text>
-          </View>
-          <View style={styles.packStatus}>
-            <Text style={styles.statusText}>Not Downloaded</Text>
-          </View>
-        </View>
-
-        <View style={styles.packItem}>
-          <View style={styles.packInfo}>
-            <Text style={styles.packName}>Full City</Text>
-            <Text style={styles.packSize}>~100 MB</Text>
-          </View>
-          <View style={styles.packStatus}>
-            <Text style={styles.statusText}>Not Downloaded</Text>
+          <View style={styles.packItem}>
+            <View style={styles.packInfo}>
+              <Text style={styles.packName}>Full City</Text>
+              <Text style={styles.packSize}>~100 MB</Text>
+            </View>
+            <View style={styles.packStatus}>
+              <Text style={styles.statusText}>Not Downloaded</Text>
+            </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -69,8 +80,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F4F0',
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
   mapPlaceholder: {
-    flex: 1,
+    minHeight: 320,
     backgroundColor: '#356B66',
     margin: 16,
     borderRadius: 16,

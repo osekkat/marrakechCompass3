@@ -48,34 +48,52 @@ export default function TipsScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <View style={styles.emergencyCard}>
-          <Text style={styles.emergencyIcon}>🆘</Text>
+          <Text style={styles.emergencyIcon} accessible={false}>
+            🆘
+          </Text>
           <View style={styles.emergencyContent}>
             <Text style={styles.emergencyTitle}>Emergency Mode</Text>
             <Text style={styles.emergencySubtitle}>Quick access to contacts & help</Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Travel Tips</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          Travel Tips
+        </Text>
 
         {tipSections.map((section) => (
-          <Pressable
-            key={section.id}
-            style={styles.accordionItem}
-            onPress={() => setExpandedId(expandedId === section.id ? null : section.id)}
-          >
-            <View style={styles.accordionHeader}>
-              <Text style={styles.accordionIcon}>{section.icon}</Text>
+          <View key={section.id} style={styles.accordionItem}>
+            <Pressable
+              style={styles.accordionHeader}
+              onPress={() => setExpandedId(expandedId === section.id ? null : section.id)}
+              accessibilityRole="button"
+              accessibilityLabel={section.title}
+              accessibilityHint={
+                expandedId === section.id
+                  ? 'Collapse this travel tips section'
+                  : 'Expand this travel tips section'
+              }
+              accessibilityState={{ expanded: expandedId === section.id }}
+            >
+              <Text style={styles.accordionIcon} accessible={false}>
+                {section.icon}
+              </Text>
               <Text style={styles.accordionTitle}>{section.title}</Text>
-              <Text style={styles.accordionChevron}>{expandedId === section.id ? '▼' : '▶'}</Text>
-            </View>
+              <Text style={styles.accordionChevron} accessible={false}>
+                {expandedId === section.id ? '▼' : '▶'}
+              </Text>
+            </Pressable>
             {expandedId === section.id && (
               <View style={styles.accordionContent}>
                 <Text style={styles.accordionText}>Content for {section.title} coming soon...</Text>
               </View>
             )}
-          </Pressable>
+          </View>
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -89,6 +107,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   emergencyCard: {
     backgroundColor: '#C65D3B',
@@ -129,6 +148,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   accordionHeader: {
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,

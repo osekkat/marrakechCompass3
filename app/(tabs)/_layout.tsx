@@ -2,6 +2,7 @@ import type React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Theme colors from Moroccan-inspired design system
 const colors = {
@@ -33,18 +34,21 @@ function TabIcon({ name, color, size }: TabIconProps): React.ReactElement {
  * 5. Tips - Travel essentials, safety, emergency
  */
 export default function TabLayout(): React.ReactElement {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopWidth: 1,
           borderTopColor: '#DDD6CC',
-          paddingBottom: 8,
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 8,
-          height: 88,
+          height: 60 + Math.max(insets.bottom, 8),
         },
         tabBarLabelStyle: {
           fontSize: 12,

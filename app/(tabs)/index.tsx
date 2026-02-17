@@ -15,26 +15,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen(): React.ReactElement {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>Welcome to Marrakech</Text>
+          <Text style={styles.heroTitle} accessibilityRole="header">
+            Welcome to Marrakech
+          </Text>
           <Text style={styles.heroSubtitle}>Your offline travel companion</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Plan Your Trip</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Plan Your Trip
+          </Text>
           <Text style={styles.placeholder}>Duration selector and itineraries coming soon...</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Tools</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Quick Tools
+          </Text>
           <Text style={styles.placeholder}>
             Airport info, emergency contacts, currency converter...
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Don&apos;t Miss</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Don&apos;t Miss
+          </Text>
           <Text style={styles.placeholder}>Featured highlights carousel...</Text>
         </View>
       </ScrollView>
@@ -49,6 +60,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   hero: {
     backgroundColor: '#C65D3B',

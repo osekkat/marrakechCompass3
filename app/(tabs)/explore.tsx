@@ -1,5 +1,6 @@
 import type React from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, Pressable } from 'react-native';
+import { useState } from 'react';
+import { Keyboard, StyleSheet, Text, View, ScrollView, TextInput, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 /**
@@ -13,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  * - Place cards with favorites
  */
 export default function ExploreScreen(): React.ReactElement {
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('All');
+
   const categories = [
     { id: 'restaurants', title: 'Restaurants & Cafes', icon: '🍽️' },
     { id: 'museums', title: 'Museums & Galleries', icon: '🏛️' },
@@ -27,12 +30,23 @@ export default function ExploreScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
             placeholder="Search places, restaurants, activities..."
             placeholderTextColor="#7A7471"
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onSubmitEditing={Keyboard.dismiss}
+            accessibilityLabel="Search places"
+            accessibilityHint="Enter keywords to search places and activities"
           />
         </View>
 
@@ -41,22 +55,51 @@ export default function ExploreScreen(): React.ReactElement {
           showsHorizontalScrollIndicator={false}
           style={styles.neighborhoodScroll}
           contentContainerStyle={styles.neighborhoodContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <Pressable style={[styles.chip, styles.chipActive]}>
-            <Text style={[styles.chipText, styles.chipTextActive]}>All</Text>
+          <Pressable
+            style={[styles.chip, selectedNeighborhood === 'All' && styles.chipActive]}
+            onPress={() => setSelectedNeighborhood('All')}
+            accessibilityRole="button"
+            accessibilityLabel="Show all neighborhoods"
+            accessibilityState={{ selected: selectedNeighborhood === 'All' }}
+          >
+            <Text
+              style={[styles.chipText, selectedNeighborhood === 'All' && styles.chipTextActive]}
+            >
+              All
+            </Text>
           </Pressable>
           {neighborhoods.map((neighborhood) => (
-            <Pressable key={neighborhood} style={styles.chip}>
-              <Text style={styles.chipText}>{neighborhood}</Text>
+            <Pressable
+              key={neighborhood}
+              style={[styles.chip, selectedNeighborhood === neighborhood && styles.chipActive]}
+              onPress={() => setSelectedNeighborhood(neighborhood)}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter by ${neighborhood}`}
+              accessibilityState={{ selected: selectedNeighborhood === neighborhood }}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  selectedNeighborhood === neighborhood && styles.chipTextActive,
+                ]}
+              >
+                {neighborhood}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
 
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          Categories
+        </Text>
         <View style={styles.categoryGrid}>
           {categories.map((category) => (
             <View key={category.id} style={styles.categoryCard}>
-              <Text style={styles.categoryIcon}>{category.icon}</Text>
+              <Text style={styles.categoryIcon} accessible={false}>
+                {category.icon}
+              </Text>
               <Text style={styles.categoryTitle}>{category.title}</Text>
             </View>
           ))}
@@ -73,6 +116,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   searchContainer: {
     marginBottom: 16,
@@ -96,9 +140,11 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: '#EFE9E2',
+    minHeight: 44,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
+    justifyContent: 'center',
     marginRight: 8,
   },
   chipActive: {
