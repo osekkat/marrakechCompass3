@@ -35,11 +35,21 @@ CREATE TABLE IF NOT EXISTS places_i18n (
 );
 
 -- FTS5 virtual table (per-locale, prebuilt)
+-- Note: FTS tables are prebuilt during content pipeline and shipped with content packs.
+-- The content sync uses external content (content='places_i18n').
+-- Rebuild triggers are needed when places_i18n is updated.
 CREATE VIRTUAL TABLE IF NOT EXISTS places_fts USING fts5(
     name, description, tips, search_keywords,
     content='places_i18n',
     content_rowid='rowid'
 );
+
+-- FTS rebuild triggers (run after content swap)
+-- These are executed manually during content activation, not auto-triggered
+-- CREATE TRIGGER places_fts_ai AFTER INSERT ON places_i18n BEGIN
+--   INSERT INTO places_fts(rowid, name, description, tips, search_keywords)
+--   VALUES (NEW.rowid, NEW.name, NEW.description, NEW.tips, NEW.search_keywords);
+-- END;
 
 -- itineraries
 CREATE TABLE IF NOT EXISTS itineraries (

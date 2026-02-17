@@ -3,14 +3,23 @@
  * Provides reactive queries with auto-invalidation on content swap
  */
 
-import type { Place, Itinerary, Pick, TipSection, Phrase, Favorite } from '../types';
+import type {
+  Place,
+  Itinerary,
+  Pick,
+  TipSection,
+  Phrase,
+  Favorite,
+  PlaceCategory,
+  Locale,
+} from '../types';
 
 // Placeholder interfaces - will be implemented in Phase D
 
 export interface PlaceFilters {
-  category?: string;
+  category?: PlaceCategory;
   neighborhood?: string;
-  priceRange?: number[];
+  priceRange?: (1 | 2 | 3 | 4)[];
   minRating?: number;
   openNow?: boolean;
   featured?: boolean;
@@ -20,37 +29,40 @@ export interface PlaceFilters {
 
 export interface SearchOptions {
   query: string;
-  locale: string;
+  locale: Locale;
   filters?: PlaceFilters;
   limit?: number;
 }
 
+/** Content type for favorites */
+export type FavoriteContentType = 'place' | 'itinerary' | 'pick';
+
 export interface Repository {
   // Places
-  getPlace(id: string, locale: string): Promise<Place | null>;
-  getPlaces(locale: string, filters?: PlaceFilters): Promise<Place[]>;
+  getPlace(id: string, locale: Locale): Promise<Place | null>;
+  getPlaces(locale: Locale, filters?: PlaceFilters): Promise<Place[]>;
   searchPlaces(options: SearchOptions): Promise<Place[]>;
 
   // Itineraries
-  getItinerary(id: string, locale: string): Promise<Itinerary | null>;
-  getItineraries(locale: string, durationType?: string): Promise<Itinerary[]>;
+  getItinerary(id: string, locale: Locale): Promise<Itinerary | null>;
+  getItineraries(locale: Locale, durationType?: string): Promise<Itinerary[]>;
 
   // Picks
-  getPick(id: string, locale: string): Promise<Pick | null>;
-  getPicks(locale: string, category?: string): Promise<Pick[]>;
+  getPick(id: string, locale: Locale): Promise<Pick | null>;
+  getPicks(locale: Locale, category?: string): Promise<Pick[]>;
 
   // Tips
-  getTipSection(id: string, locale: string): Promise<TipSection | null>;
-  getTipSections(locale: string): Promise<TipSection[]>;
+  getTipSection(id: string, locale: Locale): Promise<TipSection | null>;
+  getTipSections(locale: Locale): Promise<TipSection[]>;
 
   // Phrases
-  getPhrases(locale: string, category?: string): Promise<Phrase[]>;
+  getPhrases(locale: Locale, category?: string): Promise<Phrase[]>;
 
   // Favorites (user DB)
   getFavorites(): Promise<Favorite[]>;
-  addFavorite(contentType: string, contentId: string): Promise<void>;
-  removeFavorite(contentType: string, contentId: string): Promise<void>;
-  isFavorite(contentType: string, contentId: string): Promise<boolean>;
+  addFavorite(contentType: FavoriteContentType, contentId: string): Promise<void>;
+  removeFavorite(contentType: FavoriteContentType, contentId: string): Promise<void>;
+  isFavorite(contentType: FavoriteContentType, contentId: string): Promise<boolean>;
 }
 
 // Placeholder implementation - returns Promise.resolve() to satisfy interface

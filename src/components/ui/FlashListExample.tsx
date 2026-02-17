@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     color: '#2D2622', // Dark brown foreground
-    fontFamily: 'System', // Will be replaced with DM Sans
+    // Font family will be set to DM Sans when custom fonts are configured in Phase B
   },
 });
 

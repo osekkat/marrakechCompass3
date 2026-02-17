@@ -1,6 +1,7 @@
 {
   "name": "marrakech-compass",
   "version": "1.0.0",
+  "type": "module",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -77,7 +78,7 @@
   "jest": {
     "preset": "jest-expo",
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@shopify/flash-list|react-native-reanimated|react-native-gesture-handler)"
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",

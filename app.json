@@ -2,7 +2,6 @@
   "expo": {
     "name": "Marrakech Compass",
     "slug": "marrakech-compass",
-    "owner": "marrakechcompass",
     "scheme": "marrakech-compass",
     "version": "1.0.0",
     "runtimeVersion": {
@@ -46,11 +45,11 @@
     },
     "extra": {
       "eas": {
-        "projectId": "marrakech-compass"
+        "projectId": "YOUR_EAS_PROJECT_ID"
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/marrakech-compass"
+      "url": "https://u.expo.dev/YOUR_EAS_PROJECT_ID"
     }
   }
 }

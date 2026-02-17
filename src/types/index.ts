@@ -3,6 +3,10 @@
  * Based on plan.md data models
  */
 
+/**
+ * Supported locales for the app.
+ * Must match supportedLocales in src/i18n/index.ts
+ */
 export type Locale = 'en' | 'fr' | 'es' | 'de' | 'it' | 'nl' | 'ar';
 export type ISODateTime = string; // ISO 8601
 
