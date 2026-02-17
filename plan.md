@@ -25,16 +25,20 @@ graph TB
     end
 
     subgraph State [State Layer]
-        Zustand[Zustand Store]
+        Zustand[Zustand UI State]
+        Query[TanStack Query Cache]
         i18n[i18n Context]
         Favorites[Favorites]
     end
 
-    subgraph Data [Data Layer - Hybrid]
-        Bundled[Bundled JSON Content]
-        Supabase[Supabase - Optional Remote]
-        AsyncStorage[AsyncStorage Cache]
-        MapTiles[Mapbox Offline Tiles]
+    subgraph Data [Data Layer - Offline Core]
+        Bundle[Bundled Content Package]
+        Manifest[Signed Content Manifest]
+        Sync[Delta Sync + Rollback]
+        SQLite[SQLite Catalog + FTS]
+        FileCache[File-system Asset Cache]
+        Supabase[Supabase CMS Publish Source]
+        MapTiles[Mapbox Offline Packs]
     end
 
     Tabs --> Home
@@ -49,9 +53,11 @@ graph TB
     Maps --> MapTiles
     Tips --> Zustand
 
-    Zustand --> Bundled
-    Zustand --> Supabase
-    Zustand --> AsyncStorage
+    Zustand --> SQLite
+    Query --> Sync
+    Sync --> Manifest
+    Sync --> FileCache
+    Sync --> Supabase
     Zustand --> Favorites
 ```
 
@@ -62,11 +68,12 @@ graph TB
 - **Framework**: Expo SDK 54 (Managed Workflow)
 - **Navigation**: Expo Router v6 (file-based routing)
 - **Styling**: NativeWind v4 (Tailwind CSS for React Native) + theme tokens from marrakech-compass
-- **State Management**: Zustand (persisted to AsyncStorage for offline)
+- **State Management**: Zustand (UI/user state) + TanStack Query (sync/network cache)
 - **Maps**: @rnmapbox/maps with offline tile support
 - **i18n**: i18next + react-i18next + expo-localization (EN/FR/ES/DE/IT/NL/AR with RTL)
 - **Content**: Hybrid - bundled JSON (offline-first) + optional Supabase sync
-- **Storage**: AsyncStorage + expo-file-system for offline content
+- **Storage**: AsyncStorage (settings only) + expo-sqlite (catalog/search) + expo-file-system (assets/packs)
+- **Data Validation**: Zod schemas for all inbound content (bundled and synced)
 
 ---
 
@@ -102,6 +109,18 @@ marrakechCompass3/
 │   │   ├── useLocale.ts          # Localized content helper
 │   │   ├── useFavorites.ts       # Favorites management
 │   │   └── useOfflineStatus.ts   # Network/offline detection
+│   ├── data/                     # Local persistence + repositories
+│   │   ├── schema.ts             # SQLite schema and migrations
+│   │   └── repository.ts         # Typed data access
+│   ├── sync/                     # Remote update pipeline
+│   │   ├── manifest.ts           # Version/checksum handling
+│   │   ├── downloader.ts         # Delta package download
+│   │   └── rollback.ts           # Last-known-good recovery
+│   ├── search/                   # Offline search/indexing
+│   │   └── fts.ts                # SQLite FTS queries
+│   ├── monitoring/               # Telemetry + crash integration
+│   │   ├── crash.ts
+│   │   └── events.ts
 │   ├── stores/                   # Zustand stores
 │   │   ├── useAppStore.ts        # Main app state
 │   │   └── useSettingsStore.ts   # User preferences
@@ -156,6 +175,9 @@ interface Place {
   phone?: string;
   website?: string;
   featured?: boolean;
+  status?: "open" | "temporarily-closed" | "seasonal";
+  lastVerifiedAt?: string; // ISO date
+  accessibilityTags?: ("wheelchair" | "step-free" | "family-friendly")[];
 }
 
 type PlaceCategory =
@@ -222,6 +244,17 @@ interface TipSection {
   icon: string;
   title: LocalizedString;
   content: LocalizedString[];
+  lastReviewedAt: string; // ISO date
+  sourceRefs?: string[];
+  safetyLevel?: "general" | "important" | "critical";
+}
+
+interface ContentManifest {
+  version: string;
+  publishedAt: string; // ISO date
+  minAppVersion: string;
+  checksum: string;
+  deltaFrom?: string[];
 }
 ```
 
@@ -302,8 +335,9 @@ Each pick features:
 
 **Features:**
 
-- Search bar with instant filtering
-- Filter by: neighborhood, price range, rating
+- Offline full-text search (SQLite FTS) with transliteration + typo tolerance
+- Filter by: neighborhood, price range, rating, open-now, distance, accessibility, family-friendly
+- Sort by: editorial score, distance, and "open soon"
 - Place cards with image, name, category, rating, price
 - Heart icon to save to favorites
 - Tap to view detail screen
@@ -320,7 +354,7 @@ Each pick features:
 **Full-screen Mapbox Map:**
 
 - Interactive map centered on Marrakech Medina
-- Offline tile support (downloadable ~50MB for full Marrakech region)
+- Offline map packs by zone and zoom (Medina Core, City Center, Full City) with size estimates
 - Download progress indicator and status
 
 **POI Markers:**
@@ -333,13 +367,14 @@ Each pick features:
 
 - Current location indicator (with permission)
 - Search places on map
-- Walking directions between points (critical for Medina navigation)
+- Online turn-by-turn walking directions when connected
+- Offline fallback navigation: cached route previews + bearing/waypoint guidance
 - Recenter button
 - Layer toggle (streets vs satellite)
 
 **Offline Download Manager:**
 
-- One-tap download for Marrakech region
+- Granular pack manager with pause/resume/retry and low-storage protection
 - Download status: Not downloaded / Downloading / Ready
 - Size indicator before download
 
@@ -364,8 +399,10 @@ Expandable accordion sections with essential travel info:
 13. **Accessible Travel** - Mobility considerations, accessible riads, tour options
 14. **Responsible Travel** - Sustainable tourism, ethical shopping, water conservation
 15. **Nuts & Bolts** - Visas, electricity, time zone, public holidays, opening hours
+16. **Scams & Incident Response** - Lost passport, theft steps, police/consulate workflow
 
-Quick reference cards for most important info.
+Quick reference cards for most important info with `lastReviewedAt` stamp.
+Persistent "Emergency Mode" action available from all tabs.
 
 ---
 
@@ -373,6 +410,8 @@ Quick reference cards for most important info.
 
 - **Language Selection**: EN / FR / ES / DE / IT / NL / AR (with flag icons, RTL support for Arabic)
 - **Offline Maps**: Download status, manage storage
+- **Safety Center**: Emergency contacts, embassy list, SOS message templates
+- **Data Usage Mode**: Wi-Fi-only downloads, image quality, map storage cap
 - **Clear Cache**: Reset local data
 - **About**: App version, credits, feedback link
 
@@ -447,6 +486,9 @@ module.exports = {
   "nativewind": "^4.0.0",
   "tailwindcss": "^3.4.0",
   "zustand": "^4.5.0",
+  "@tanstack/react-query": "^5.0.0",
+  "zod": "^3.23.0",
+  "expo-sqlite": "~15.0.0",
   "i18next": "^23.0.0",
   "react-i18next": "^14.0.0",
   "expo-localization": "~16.0.0",
@@ -464,16 +506,17 @@ module.exports = {
 
 ### Content (Bundled JSON - Offline First)
 
-1. All content ships with the app in `src/content/*.json`
-2. App works 100% offline from first launch
-3. Optional: Check Supabase for content updates when online
-4. Sync updated content to AsyncStorage cache
-5. Fall back to bundled content if no network
+1. Ship a signed baseline content package with the app.
+2. On connectivity, fetch a lightweight manifest (`version`, `checksum`, `deltaFrom`).
+3. Validate downloaded packages against checksum + schema before activation.
+4. Apply delta updates into SQLite/file cache atomically.
+5. Keep current + previous content versions for instant rollback.
+6. Fall back to last-known-good package on any validation or migration failure.
 
 ### Maps (Mapbox Offline Tiles)
 
-1. On first launch, prompt user to download offline maps
-2. Download Marrakech region (~50MB): Medina + Gueliz + Palmeraie
+1. On first launch, recommend at least one map pack (Medina Core) with explicit size.
+2. Offer optional larger packs (City Center, Full City) with Wi-Fi-only default.
 3. Tiles cached via Mapbox SDK offline manager
 4. Show download progress and completion status
 5. Maps work fully offline once downloaded
@@ -482,27 +525,41 @@ module.exports = {
 
 - Persisted immediately via Zustand + AsyncStorage
 - No network required
+- Sync retries use exponential backoff and never block read paths.
+
+---
+
+## Reliability & Performance Budgets
+
+- Cold start P75: <2.0s on mid-range Android, <1.5s on recent iPhone
+- Scroll performance: 55+ FPS in list/map interactions
+- Crash-free sessions: >=99.5%
+- Max map/content download failure rate: <3%
+
+## Observability & Analytics
+
+- Crash reporting with offline queue and upload-on-connect
+- Structured event taxonomy for key journeys (search, save, map download, emergency mode)
+- Privacy-first analytics: no precise location persisted without explicit consent
+
+## Testing & Release Gates
+
+- Unit tests: stores, data validation, sync conflict handling
+- Integration tests: offline bootstrap, manifest apply, rollback
+- E2E tests (iOS/Android): core tab flows in offline and flaky-network modes
+- Release gate: cannot ship if offline smoke suite fails
 
 ---
 
 ## Implementation Order
 
-1. **Project Setup**: Initialize Expo, configure NativeWind, set up folder structure, copy theme
-2. **Navigation**: Expo Router with 5 tabs and nested routes
-3. **Content & Types**: Create TypeScript interfaces and bundled JSON files
-4. **i18n**: Configure multi-language support with language switcher
-5. **UI Components**: Build reusable NativeWind components
-6. **Home Screen**: Weather, Plan Your Trip, quick tools, highlights
-7. **Our Picks Screen**: Editorial category cards with rich imagery
-8. **Explore Screen**: Category grid, search, filters, favorites
-9. **Tips Screen**: Accordion sections with comprehensive travel info
-10. **Detail Screens**: Place detail, itinerary detail, category listing
-11. **State Management**: Zustand for favorites, settings, sync status
-12. **Maps Integration**: Mapbox with offline tiles and POI markers
-13. **Polish**: Loading states, animations, error handling, haptics
-14. **Supabase (Optional)**: Remote content updates for post-MVP
-15. **EAS Build**: Configure for iOS and Android app stores
-16. **Content Population**: Add comprehensive Marrakech content
+1. **Phase A - Foundation**: Expo setup, navigation shell, CI, lint/test baseline
+2. **Phase B - Offline Data Core**: schema, manifest pipeline, validation, rollback, seed content
+3. **Phase C - Core UX**: Home/Explore/Tips + detail screens wired to local repository
+4. **Phase D - Maps & Search**: map packs, FTS search, download manager, offline fallback navigation
+5. **Phase E - Planner & Safety**: emergency mode and safety center
+6. **Phase F - Sync & Observability**: optional remote publish sync, telemetry, crash reporting
+7. **Phase G - Launch Hardening**: performance budgets, offline E2E, store build/release
 
 ---
 
@@ -512,15 +569,17 @@ module.exports = {
 - [ ] Configure Expo Router with 5-tab navigation and nested routes (place/[id], itinerary/[id], category/[slug])
 - [ ] Create TypeScript types (Place, Itinerary, Pick, Tip) and bundled JSON content files in content/ directory
 - [ ] Configure i18next with expo-localization, create translation files for EN/FR/ES/DE/IT/NL/AR (with RTL support)
-- [ ] Set up Zustand store for favorites, language preference, offline sync status, and settings persistence
+- [ ] Set up data layer (SQLite + repository + schema validation + rollback)
+- [ ] Keep AsyncStorage for settings/favorites only; avoid large content blobs in AsyncStorage
 - [ ] Create reusable NativeWind components (Card, Button, PlaceCard, AccordionSection, CategoryPill, etc.)
 - [ ] Implement Home with weather widget, Plan Your Trip (itineraries), quick tools, and highlights carousel
 - [ ] Implement Our Picks with editorial-style category cards and rich imagery
-- [ ] Implement Explore with category grid, filters, search, and favorites
-- [ ] Implement Maps tab with Mapbox, offline tiles, POI markers, walking directions, and location tracking
+- [ ] Implement Explore with offline FTS search, transliteration, advanced filters, and favorites
+- [ ] Implement Maps tab with multi-pack offline downloads, POI markers, online routing + offline fallback navigation
 - [ ] Implement Tips tab with accordion sections including safety and emergency contacts
 - [ ] Create place detail, itinerary detail, and category listing screens
 - [ ] Configure Mapbox SDK with offline region downloads for Marrakech (Medina + surrounding areas)
 - [ ] Set up optional Supabase backend for remote content updates (can be deferred post-MVP)
-- [ ] Add loading states, animations, error handling, and haptic feedback
+- [ ] Add telemetry, crash reporting, offline-safe error handling, and performance instrumentation
+- [ ] Add unit/integration/E2E test suites with offline smoke gates
 - [ ] Set up EAS Build for iOS and Android app store deployment
