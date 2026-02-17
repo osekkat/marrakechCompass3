@@ -9,6 +9,7 @@ export default tseslint.config(
   ...tseslint.configs.recommendedTypeChecked,
   prettierConfig,
   {
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -71,6 +72,8 @@ export default tseslint.config(
       'coverage/',
       '*.config.js',
       '*.config.cjs',
+      '.eslintrc.js',
+      'jest.setup.js',
       'eslint.config.js',
       '.husky/',
     ],

@@ -74,21 +74,5 @@
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.56.0"
   },
-  "private": true,
-  "jest": {
-    "preset": "jest-expo",
-    "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@shopify/flash-list|react-native-reanimated|react-native-gesture-handler)"
-    ],
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/.expo/"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.{ts,tsx}",
-      "app/**/*.{ts,tsx}",
-      "!**/*.d.ts",
-      "!**/node_modules/**"
-    ]
-  }
+  "private": true
 }
